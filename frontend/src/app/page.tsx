@@ -33,7 +33,10 @@ const RiskMap = dynamic(
     ),
   }
 );
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+// Clean single-declaration API URL with trailing slash sanitation
+const rawApi = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE = rawApi.replace(/\/+$/, '');
 
 export default function Home() {
   const [telemetry, setTelemetry] = useState<TelemetryData | null>(null);
@@ -57,26 +60,34 @@ export default function Home() {
   const [activeSpeechText, setActiveSpeechText] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 1. Initial Load: Fetch hazards and default telemetry
+  // 1. Initial Load: Fetch hazards and default telemetry with safe error guards
   useEffect(() => {
     fetch(`${API_BASE}/api/telemetry?location=Jammu`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error(`Telemetry HTTP status: ${res.status}`);
+        return res.json();
+      })
       .then((data: TelemetryData) => {
-        setTelemetry(data);
+        if (data) setTelemetry(data);
       })
       .catch((err) => {
-        console.warn('Backend initial telemetry fetch:', err);
+        console.warn('Initial telemetry fetch fallback:', err);
       });
 
     fetch(`${API_BASE}/api/hazards`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error(`Hazards HTTP status: ${res.status}`);
+        return res.json();
+      })
       .then((data) => {
-        if (data.hazards) {
+        if (data && Array.isArray(data.hazards)) {
           setHazards(data.hazards);
+        } else if (Array.isArray(data)) {
+          setHazards(data);
         }
       })
       .catch((err) => {
-        console.warn('Backend hazards fetch:', err);
+        console.warn('Initial hazards fetch fallback:', err);
       });
   }, []);
 
@@ -175,12 +186,15 @@ export default function Home() {
           `✅ Ground-Truth Hazard Verified!\nType: ${hazardRes.hazard_type || 'Waterlogging'}\nDepth: ~${hazardRes.depth_cm || 25}cm\nStatus: Registered in Quorum Engine`
         );
         const hRes = await fetch(`${API_BASE}/api/hazards`);
-        const hData = await hRes.json();
-        if (hData.hazards) {
-          setHazards(hData.hazards);
+        if (hRes.ok) {
+          const hData = await hRes.json();
+          if (hData.hazards) {
+            setHazards(hData.hazards);
+          } else if (Array.isArray(hData)) {
+            setHazards(hData);
+          }
         }
       } else {
-        // Realistic simulation fallback for jury demos if vision service is offline
         const simulatedDepth = Math.floor(Math.random() * 30) + 15;
         alert(
           `📸 Ground-Truth Hazard Uploaded: "${file.name}"\nInference: Localized Inundation (~${simulatedDepth}cm depth)\nStatus: Triangulated in Community Quorum Matrix.`
@@ -295,9 +309,13 @@ export default function Home() {
 
       if (res.ok) {
         const hRes = await fetch(`${API_BASE}/api/hazards`);
-        const hData = await hRes.json();
-        if (hData.hazards) {
-          setHazards(hData.hazards);
+        if (hRes.ok) {
+          const hData = await hRes.json();
+          if (hData.hazards) {
+            setHazards(hData.hazards);
+          } else if (Array.isArray(hData)) {
+            setHazards(hData);
+          }
         }
       }
     } catch (err) {
@@ -449,7 +467,7 @@ export default function Home() {
 
       {/* Advanced Features Slide-over Drawer */}
       <AdvancedFeaturesDrawer
-        key={`${telemetry?.location || 'init'}-${telemetry?.temp || 0}`}
+        key={`${telemetry?.location || 'init'}-${telemetry?.temp !== undefined ? telemetry.temp : 0}`}
         isOpen={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         telemetry={telemetry as any}
