@@ -98,12 +98,9 @@ export const ChatConsole: React.FC<ChatConsoleProps> = ({
               <Bot size={28} />
             </div>
             <h3 className="text-sm font-bold text-white mb-1">MausamSetu Tactical Autonomous Agent</h3>
-            <p className="text-xs leading-relaxed text-slate-400 mb-4">
+            <p className="text-xs leading-relaxed text-slate-400">
               Autonomous natural language entity extraction, OpenStreetMap Nominatim spatial resolution, and Open-Meteo high-resolution atmospheric telemetry.
             </p>
-            <div className="text-[11px] text-cyan-400 font-mono bg-slate-900/80 border border-slate-800 rounded-lg p-2.5 w-full text-left">
-              Try query: <button onClick={() => onSendMessage('Jammu weather')} className="underline text-cyan-300 font-bold hover:text-white">"Jammu weather"</button> to pin coordinates (32.7266, 74.8570) and load live telemetry cards.
-            </div>
           </div>
         ) : (
           messages.map((m) => {
@@ -196,7 +193,7 @@ export const ChatConsole: React.FC<ChatConsoleProps> = ({
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask for panchayat advisory or type 'Jammu weather'..."
+          placeholder="Ask for panchayat advisory or type city name..."
           disabled={loading}
           className="flex-1 bg-slate-900 border border-slate-800 focus:border-cyan-500 text-slate-100 text-xs rounded-xl px-4 py-3 focus:outline-none placeholder-slate-400 transition-colors disabled:opacity-50"
         />

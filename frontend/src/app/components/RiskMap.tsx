@@ -21,12 +21,13 @@ interface RiskMapProps {
   evacRoute: EvacRouteResult | null;
 }
 
+// Default system fallback coordinates set to Kolkata
+const DEFAULT_FALLBACK_LAT = 22.5726;
+const DEFAULT_FALLBACK_LON = 88.3639;
+
 // Coordinate extraction with fallback safeguards
 function getValidCoords(telemetry: TelemetryData | null): [number, number] {
-  const fallbackLat = 32.7266;
-  const fallbackLon = 74.8570;
-
-  if (!telemetry) return [fallbackLat, fallbackLon];
+  if (!telemetry) return [DEFAULT_FALLBACK_LAT, DEFAULT_FALLBACK_LON];
 
   const parsedLat = Number(telemetry.latitude);
   const parsedLon = Number(telemetry.longitude);
@@ -35,8 +36,8 @@ function getValidCoords(telemetry: TelemetryData | null): [number, number] {
   const isValidLon = !isNaN(parsedLon) && isFinite(parsedLon) && parsedLon >= -180 && parsedLon <= 180;
 
   return [
-    isValidLat ? parsedLat : fallbackLat,
-    isValidLon ? parsedLon : fallbackLon,
+    isValidLat ? parsedLat : DEFAULT_FALLBACK_LAT,
+    isValidLon ? parsedLon : DEFAULT_FALLBACK_LON,
   ];
 }
 
@@ -50,7 +51,6 @@ function FlyToController({ coords }: { coords: [number, number] }) {
     const lat = Number(coords[0]);
     const lon = Number(coords[1]);
 
-    // Strict numerical check: must be real numbers and within Earth coordinate bounds
     if (
       Number.isFinite(lat) &&
       !Number.isNaN(lat) &&
@@ -74,9 +74,7 @@ function FlyToController({ coords }: { coords: [number, number] }) {
   }, [coords, map]);
 
   return null;
-  
 }
-
 
 export const RiskMap: React.FC<RiskMapProps> = ({
   telemetry,
@@ -90,12 +88,8 @@ export const RiskMap: React.FC<RiskMapProps> = ({
   useEffect(() => {
     setMounted(true);
   }, []);
-  
 
- const fallbackLat = 32.7266;
-  const fallbackLon = 74.8570;
-  const lat = Number.isFinite(Number(telemetry?.latitude)) ? Number(telemetry?.latitude) : fallbackLat;
-  const lon = Number.isFinite(Number(telemetry?.longitude)) ? Number(telemetry?.longitude) : fallbackLon;
+  const [lat, lon] = getValidCoords(telemetry);
   const center: [number, number] = [lat, lon];
 
   if (!mounted) {
@@ -159,7 +153,7 @@ export const RiskMap: React.FC<RiskMapProps> = ({
         }
       `}</style>
 
-      {/* Top-Right Floating Atmospheric Switcher (Mobile & Desktop Responsive) */}
+      {/* Top-Right Floating Atmospheric Switcher */}
       <div className="absolute top-2 right-2 sm:top-3 sm:right-3 z-[1000] flex items-center bg-[#0d1322]/95 border border-slate-800 rounded-xl p-1 shadow-2xl backdrop-blur-md">
         <button
           onClick={() => setActiveOverlay('radar')}
@@ -222,7 +216,7 @@ export const RiskMap: React.FC<RiskMapProps> = ({
         </div>
         <div className="flex items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 border border-cyan-200" />
-          <span>Active Station ({telemetry?.location?.split(',')[0] || 'Jammu'})</span>
+          <span>Active Station ({telemetry?.location?.split(',')[0] || 'Kolkata'})</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="w-2.5 h-2.5 rounded-full bg-orange-500 border border-orange-300" />
@@ -373,7 +367,7 @@ export const RiskMap: React.FC<RiskMapProps> = ({
             <div className="p-1 text-xs space-y-1 font-sans">
               <div className="font-bold text-cyan-400 flex items-center gap-1">
                 <span>Observatory Station:</span>
-                <span>{telemetry?.location || 'Jammu'}</span>
+                <span>{telemetry?.location || 'Kolkata'}</span>
               </div>
               <div className="text-[11px] text-slate-300 font-mono">
                 Coords: {lat.toFixed(4)}°N, {lon.toFixed(4)}°E
