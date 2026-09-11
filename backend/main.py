@@ -471,10 +471,34 @@ async def health():
     }
 
 @app.get("/api/telemetry", response_model=TelemetryData)
-async def get_telemetry(location: str = "Jammu"):
-    geo = await geocode_location(location)
-    telemetry = await fetch_weather_telemetry(geo["lat"], geo["lon"], geo["display_name"])
-    return telemetry
+async def get_telemetry(
+    location: Optional[str] = None,
+    lat: Optional[float] = None,
+    lon: Optional[float] = None
+):
+    # Case 1: Coordinate-based direct detection from client GPS
+    if lat is not None and lon is not None:
+        display_name = f"Station ({lat:.3f}°N, {lon:.3f}°E)"
+        try:
+            async with httpx.AsyncClient(timeout=4.0) as client:
+                rev_url = f"https://nominatim.openstreetmap.org/reverse?lat={lat}&lon={lon}&format=json"
+                headers = {"User-Agent": "MausamSetu-MoES-AtmosIQ/1.0"}
+                resp = await client.get(rev_url, headers=headers)
+                if resp.status_code == 200:
+                    r_data = resp.json()
+                    addr = r_data.get("address", {})
+                    suburb = addr.get("suburb") or addr.get("neighbourhood") or addr.get("village") or addr.get("city") or addr.get("county") or ""
+                    state = addr.get("state", "India")
+                    display_name = f"{suburb}, {state}".strip(", ") if suburb else r_data.get("display_name", display_name)
+        except Exception as e:
+            logger.warning(f"Reverse geocode failed: {e}")
+
+        return await fetch_weather_telemetry(lat, lon, display_name)
+
+    # Case 2: Named location fallback (defaults to Kolkata if empty)
+    loc_target = location.strip() if (location and location.strip()) else "Kolkata"
+    geo = await geocode_location(loc_target)
+    return await fetch_weather_telemetry(geo["lat"], geo["lon"], geo["display_name"])
 
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat(req: ChatRequest):

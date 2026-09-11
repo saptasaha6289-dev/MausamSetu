@@ -60,20 +60,40 @@ export default function Home() {
   const [activeSpeechText, setActiveSpeechText] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 1. Initial Load: Fetch hazards and default telemetry with safe error guards
+  // 1. Initial Load: Auto-detect GPS location via browser, with Kolkata as fallback
   useEffect(() => {
-    fetch(`${API_BASE}/api/telemetry?location=Jammu`)
-      .then((res) => {
-        if (!res.ok) throw new Error(`Telemetry HTTP status: ${res.status}`);
-        return res.json();
-      })
-      .then((data: TelemetryData) => {
-        if (data) setTelemetry(data);
-      })
-      .catch((err) => {
-        console.warn('Initial telemetry fetch fallback:', err);
-      });
+    const fetchTelemetryUrl = (url: string) => {
+      fetch(url)
+        .then((res) => {
+          if (!res.ok) throw new Error(`Telemetry HTTP status: ${res.status}`);
+          return res.json();
+        })
+        .then((data: TelemetryData) => {
+          if (data) setTelemetry(data);
+        })
+        .catch((err) => {
+          console.warn('Initial telemetry fetch fallback:', err);
+        });
+    };
 
+    // Request client geolocation
+    if (typeof window !== 'undefined' && 'geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          fetchTelemetryUrl(`${API_BASE}/api/telemetry?lat=${latitude}&lon=${longitude}`);
+        },
+        (error) => {
+          console.warn('Geolocation permission denied or unavailable, using Kolkata fallback:', error.message);
+          fetchTelemetryUrl(`${API_BASE}/api/telemetry?location=Kolkata`);
+        },
+        { timeout: 7000, enableHighAccuracy: true }
+      );
+    } else {
+      fetchTelemetryUrl(`${API_BASE}/api/telemetry?location=Kolkata`);
+    }
+
+    // Load registered community hazards
     fetch(`${API_BASE}/api/hazards`)
       .then((res) => {
         if (!res.ok) throw new Error(`Hazards HTTP status: ${res.status}`);
@@ -164,8 +184,8 @@ export default function Home() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const currentLat = telemetry?.latitude || 32.7266;
-    const currentLon = telemetry?.longitude || 74.8570;
+    const currentLat = telemetry?.latitude || 22.5726;
+    const currentLon = telemetry?.longitude || 88.3639;
     const locName = telemetry?.location || 'Active Station';
 
     try {
@@ -183,7 +203,7 @@ export default function Home() {
       if (res.ok) {
         const hazardRes = await res.json();
         alert(
-          `✅ Ground-Truth Hazard Verified!\nType: ${hazardRes.hazard_type || 'Waterlogging'}\nDepth: ~${hazardRes.depth_cm || 25}cm\nStatus: Registered in Quorum Engine`
+          `✅ Ground-Truth Hazard Verified!\nType: ${hazardRes.hazard_type || 'Waterlogging'}\nDepth: ~${hazardRes.water_depth_cm || 25}cm\nStatus: Registered in Quorum Engine`
         );
         const hRes = await fetch(`${API_BASE}/api/hazards`);
         if (hRes.ok) {
@@ -269,8 +289,8 @@ export default function Home() {
   // Handle Plotting Evacuation Route
   const handlePlotEvacRoute = async (vehicleType: string) => {
     setEvacLoading(true);
-    const startLat = telemetry?.latitude || 32.7266;
-    const startLon = telemetry?.longitude || 74.8570;
+    const startLat = telemetry?.latitude || 22.5726;
+    const startLon = telemetry?.longitude || 88.3639;
 
     try {
       const res = await fetch(`${API_BASE}/api/evac-route`, {

@@ -23,20 +23,28 @@ import {
   Sparkles
 } from 'lucide-react-native';
 
+// Production Cloud Deployment Endpoints
+const BACKEND_HEALTH_URL = 'https://mausamsetu-backend.onrender.com/api/health';
+const FRONTEND_PLATFORM_URL = 'https://mausamsetu.vercel.app';
+
 export default function App() {
   const [serverOnline, setServerOnline] = useState(false);
   const [checkingServer, setCheckingServer] = useState(true);
 
   useEffect(() => {
-    // Check local backend health
-    fetch('http://localhost:8000/api/health')
-      .then((res) => res.json())
+    // Check production backend health on launch
+    fetch(BACKEND_HEALTH_URL)
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP status: ${res.status}`);
+        return res.json();
+      })
       .then((data) => {
         if (data.status === 'healthy') {
           setServerOnline(true);
         }
       })
-      .catch(() => {
+      .catch((err) => {
+        console.warn('Backend health check error:', err);
         setServerOnline(false);
       })
       .finally(() => {
@@ -46,7 +54,7 @@ export default function App() {
 
   const openPlatform = async () => {
     try {
-      await WebBrowser.openBrowserAsync('http://localhost:3000');
+      await WebBrowser.openBrowserAsync(FRONTEND_PLATFORM_URL);
     } catch (error) {
       console.warn('Cannot open WebBrowser', error);
     }
@@ -145,7 +153,7 @@ export default function App() {
                       { color: serverOnline ? '#10b981' : '#f59e0b' },
                     ]}
                   >
-                    {serverOnline ? 'ONLINE (Port 8000)' : 'STANDBY'}
+                    {serverOnline ? 'ONLINE (Cloud Node)' : 'STANDBY'}
                   </Text>
                 </View>
               )}
